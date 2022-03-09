@@ -1,0 +1,94 @@
+
+import org.apache.spark.sql.SparkSession
+val spark:SparkSession = SparkSession.builder()
+      .master("cluster")
+      .appName("IMDB")
+      .getOrCreate()  
+	  
+val dftitle = spark. read. option("header","true")
+option("sep", "\t")
+option("multiLine", "true")
+option("quote","\"")
+option("escape","\"")
+option("ignoreTrailingWhiteSpace", true)
+csv("/Users/dipak_shaw/bdp/data/title.tsv")
+
+val dftitle_basics = spark. read. option("header","true")
+option("sep", "\t")
+option("multiLine", "true")
+option("quote","\"")
+option("escape","\"")
+option("ignoreTrailingWhiteSpace", true)
+csv("/Users/dipak_shaw/bdp/data/title.basics.tsv")
+
+val title_crew = spark. read. option("header","true")
+option("sep", "\t")
+option("multiLine", "true")
+option("quote","\"")
+option("escape","\"")
+option("ignoreTrailingWhiteSpace", true)
+csv("/Users/dipak_shaw/bdp/data/title_crew.tsv")
+
+
+val title_episode = spark. read. option("header","true")
+option("sep", "\t")
+option("multiLine", "true")
+option("quote","\"")
+option("escape","\"")
+option("ignoreTrailingWhiteSpace", true)
+csv("/Users/dipak_shaw/bdp/data/title_episode.tsv")
+
+val title_principals = spark. read. option("header","true")
+option("sep", "\t")
+option("multiLine", "true")
+option("quote","\"")
+option("escape","\"")
+option("ignoreTrailingWhiteSpace", true)
+csv("/Users/dipak_shaw/bdp/data/title_principals.tsv")
+
+
+val title_ratings = spark. read. option("header","true")
+option("sep", "\t")
+option("multiLine", "true")
+option("quote","\"")
+option("escape","\"")
+option("ignoreTrailingWhiteSpace", true)
+csv("/Users/dipak_shaw/bdp/data/title_ratings.tsv")
+
+val name_basicsDF = spark. read. option("header","true")
+option("sep", "\t")
+option("multiLine", "true")
+option("quote","\"")
+option("escape","\"")
+option("ignoreTrailingWhiteSpace", true)
+csv("/Users/dipak_shaw/bdp/data/name_basics.tsv")
+
+
+val averageNumberOfVotes = title_ratings
+			.select(avg("numVotes"))
+			.first();
+			
+
+val dfrating = title_ratings.withColumn("averageNumberOfVotes", lit(averageNumberOfVotes)).withColumn("rankingScore", title_ratings.col("numVotes").divide(averageNumberOfVotes)
+.multiply(title_ratings.col("averageRating"))).limit(50)
+
+dfrating.show(50,false);
+
+
+val crewJoinDf = dfrating.join(title_crew, "tconst");
+val titlePrincipalsDf = dfrating.join(title_principals, "tconst")
+		
+val directors = crewJoinDf.select(explode($"directors").as("directorList")).select("directorList.*")
+				
+				
+val writers = crewJoinDf.select(explode($"writers").as("writersList")).select("writersList.*")
+		
+val cast = titlePrincipalsDf.select(explode($"cast").as("castList")).select("castList.*")
+		
+val  allCastAndCrew = directors.union(writers).union(cast);
+
+val creditedPersonsDF = allCastAndCrew.join(name_basicsDF, "nconst")
+.groupBy("nconst", "primaryName")
+.agg(count(lit(1)).alias("nrOfCredits"))
+.sort(col("nrOfCredits").desc())
+
